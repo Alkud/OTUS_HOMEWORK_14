@@ -2,11 +2,11 @@
 
 #include <iostream>
 
-#include "yarm_process.h"
+#include "yamr_process.h"
 
 using namespace std;
 
 int main(int argc, char* argv[])
 {
-  return yarmRun(argc, argv, std::cerr);
+  return yamrRun(argc, argv);
 }

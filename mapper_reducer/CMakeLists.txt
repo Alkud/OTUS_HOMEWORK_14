@@ -2,6 +2,7 @@
 
 # set library name and content
 add_library(mapper_reducer
+  mapper_reducer_base.h
   prefix_mapper.h prefix_mapper.cpp
-  maxval_reducer.h maxval_reducer.cpp
+  prefix_frequency_reducer.h prefix_frequency_reducer.cpp
 )

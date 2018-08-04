@@ -6,7 +6,7 @@
 #include <sstream>
 #include <fstream>
 #include <iostream>
-#include "maxval_reducer.h"
+#include "prefix_frequency_reducer.h"
 
 
 
@@ -19,22 +19,49 @@ BOOST_AUTO_TEST_CASE(simple_reduce_test)
   {
     std::list<std::string> testData{};
 
-    for (size_t prefixLength{1}; prefixLength < 21; ++prefixLength)
+    for (size_t prefixLength{1}; prefixLength < 8; ++prefixLength)
     {
-      for (size_t occurrenceCount{1}; occurrenceCount < 1001; ++occurrenceCount)
+      std::stringstream testStream{};
+      testStream << std::to_string(prefixLength) << "\t";
+      char testChar {'a'};
+      for (size_t idx {0}; idx < 10; ++idx)
       {
-        testData.push_back(std::to_string(prefixLength) + "\t" + std::to_string(occurrenceCount));
+        for (size_t occurrenceCount{1}; occurrenceCount < 11; ++occurrenceCount)
+        {
+          testStream << std::string(prefixLength, testChar) << " ";
+        }
+        ++testChar;
       }
+
+      auto testString{testStream.str()};
+
+      testData.push_back(testString.substr(0, testString.size() - 1));
     }
 
     std::list<std::string> expectedReducedData{};
 
-    for (size_t prefixLength{1}; prefixLength < 21; ++prefixLength)
+    for (size_t prefixLength{1}; prefixLength < 8; ++prefixLength)
     {
-      expectedReducedData.push_back(std::to_string(prefixLength) + "\t1000");
+      std::stringstream testStream{};
+      testStream << ">>>> PREFIX_LENGTH: " << std::to_string(prefixLength) << "\n";
+      char testChar {'a'};
+      for (size_t idx {0}; idx < 10; ++idx)
+      {
+        testStream << std::string(prefixLength, testChar++) << " 10\n";
+      }
+
+      auto testString{testStream.str()};
+
+      expectedReducedData.push_back(testString.substr(0, testString.size() - 1));
     }
 
-    auto actualReducedData {MaxValuReducer{}(testData)};
+    std::list<std::string> actualReducedData{};
+    PrefixFrequencyReducer testReducer{};
+
+    for (const auto nextString : testData)
+    {
+      testReducer(nextString, actualReducedData);
+    }
 
     BOOST_CHECK_EQUAL_COLLECTIONS(actualReducedData.begin(), actualReducedData.end(),
                                   expectedReducedData.begin(), expectedReducedData.end());

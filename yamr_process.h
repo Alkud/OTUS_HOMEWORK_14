@@ -4,4 +4,4 @@
 
 #include <iostream>
 
-int yarmRun(int argc, char* argv[], std::ostream& errorStream);
+int yamrRun(int argc, char* argv[]);

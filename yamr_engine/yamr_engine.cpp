@@ -1,4 +1,4 @@
-#include "yarm_engine.h"
+#include "yamr_engine.h"
 #include <fstream>
 #include <iostream>
 #include <set>
@@ -6,18 +6,21 @@
 #include <numeric>
 #include <cctype>
 #include <iterator>
+#include <sstream>
 
-YarmEngine::YarmEngine(
-    size_t newMappingThreadCount,
-    size_t newReducingThreadCount) :
+YamrEngine::YamrEngine(size_t newMappingThreadCount,
+                       size_t newReducingThreadCount,
+                       const SharedFunctor& newMapper,
+                       const SharedFunctor& newReducer) :
   mappingThreadCount{newMappingThreadCount},
   reducingThreadCount{newReducingThreadCount},
+  mapper{newMapper}, reducer{newReducer},
   splittedMappedData{}, mergedMappedData{nullptr}
 {
 
 }
 
-FileBoundsList YarmEngine::splitFile(const std::string& fileName, const size_t partsCount)
+FileBoundsList YamrEngine::splitFile(const std::string& fileName, const size_t partsCount)
 {
   std::ifstream fileToSplit{fileName, std::ifstream::ate | std::ifstream::binary};
 
@@ -26,7 +29,7 @@ FileBoundsList YarmEngine::splitFile(const std::string& fileName, const size_t p
     throw std::invalid_argument{"File not found"};
   }
 
-  if (partsCount <= 1)
+  if (0 == partsCount)
   {
     throw std::invalid_argument{"Wrong number of parts"};
   }
@@ -123,9 +126,9 @@ FileBoundsList YarmEngine::splitFile(const std::string& fileName, const size_t p
   return sectionBounds;
 }
 
-ListSharedStringList YarmEngine::mapData(const std::string& fileName,
+ListSharedStringList YamrEngine::mapData(const std::string& fileName,
                                          const size_t resultPartsCount,
-                                         MapReduceFunction mapper)
+                                         SharedFunctor mapper)
 {
   auto sectionBounds{splitFile(fileName, resultPartsCount)};
 
@@ -136,7 +139,7 @@ ListSharedStringList YarmEngine::mapData(const std::string& fileName,
   for (const auto& bounds : sectionBounds)
   {
     mappingResults.push_back(std::async(std::launch::async,
-                                        &YarmEngine::readAndMap,
+                                        &YamrEngine::readAndMap,
                                         std::ref(fileName), bounds,
                                         mapper, std::ref(fileLock)));
   }
@@ -156,12 +159,12 @@ ListSharedStringList YarmEngine::mapData(const std::string& fileName,
   return mappedData;
 }
 
-const ListSharedStringList YarmEngine::getMappedData()
+const ListSharedStringList YamrEngine::getMappedData()
 {
   return splittedMappedData;
 }
 
-ListSharedStringList YarmEngine::mergeData(const ListSharedStringList& mappedData,
+ListSharedStringList YamrEngine::mergeData(const ListSharedStringList& mappedData,
                                            const size_t resultPartsCount)
 {
   std::vector<std::thread> shufflingThreads{};
@@ -177,7 +180,7 @@ ListSharedStringList YarmEngine::mergeData(const ListSharedStringList& mappedDat
 
   for (const auto& listToMerge : mappedData)
   {
-    shufflingThreads.push_back(std::thread{&YarmEngine::dispenseSortedLists,
+    shufflingThreads.push_back(std::thread{&YamrEngine::dispenseSortedLists,
                                         std::ref(listToMerge),
                                         mergers});
   }
@@ -209,23 +212,79 @@ ListSharedStringList YarmEngine::mergeData(const ListSharedStringList& mappedDat
   return mergedData;
 }
 
-const ListSharedStringList YarmEngine::getMergedData()
+const ListSharedStringList YamrEngine::getMergedData()
 {
   return mergedMappedData;
 }
 
-ListSharedStringList YarmEngine::reduceData(const ListSharedStringList& mappedData,
-                                            MapReduceFunction reducer)
+ListSharedStringList YamrEngine::reduceData(const ListSharedStringList& mergedData,
+                                            SharedFunctor reducer)
 {
+  ListSharedStringList reducedData{};
+  
+  std::vector<std::future<SharedStringList>> reducingResults{};
+  
+  for (const auto& listToReduce : mergedData)
+  {
+    reducingResults.push_back(std::async(std::launch::async,
+                                         [&listToReduce, reducer]()
+                                         {return reduce(listToReduce, reducer);}));
+  }
+  
+  for (auto& result : reducingResults)
+  {
+    if (result.valid())
+    {
+      reducedData.push_back(result.get());
+    }
+  }
 
+  return reducedData;
 }
 
-const ListSharedStringList YarmEngine::getReducedData()
+ListSharedStringList YamrEngine::reduceAndSaveData(const ListSharedStringList& mergedData, SharedFunctor reducer)
 {
+  ListSharedStringList reducedData{};
 
+  std::vector<std::future<SharedStringList>> reducingResults{};
+
+  for (const auto& listToReduce : mergedData)
+  {
+    reducingResults.push_back(std::async(std::launch::async,
+                                         [&listToReduce, reducer]()
+                                         {return reduce(listToReduce, reducer);}));
+  }
+
+  size_t partsCount{reducingResults.size()};
+  size_t partIndex{1};
+
+  for (auto& result : reducingResults)
+  {
+    if (result.valid())
+    {
+      reducedData.push_back(result.get());
+
+      std::string fileName{std::string{"reduced_data_"}
+                           + std::to_string(partIndex)
+                           + "_of_"
+                           + std::to_string(partsCount)
+                           + ".txt"};
+
+      saveListToFile(fileName, reducedData.back());
+
+      ++partIndex;
+    }
+  }
+
+  return reducedData;
 }
 
-void YarmEngine::saveListToFile(const std::string& fileName, const SharedStringList& data)
+const ListSharedStringList YamrEngine::getReducedData()
+{
+  return reducedData;
+}
+
+void YamrEngine::saveListToFile(const std::string& fileName, const SharedStringList& data)
 {
   std::ofstream outputFile{fileName};
 
@@ -251,7 +310,16 @@ void YarmEngine::saveListToFile(const std::string& fileName, const SharedStringL
   }
 }
 
-size_t YarmEngine::FNVHash(const std::string& str)
+void YamrEngine::mapReduce(const std::string& fileName)
+{
+  splittedMappedData = mapData(fileName, mappingThreadCount, mapper);
+
+  mergedMappedData = mergeData(splittedMappedData, reducingThreadCount);
+
+  reducedData = reduceAndSaveData(mergedMappedData, reducer);
+}
+
+size_t YamrEngine::FNVHash(const std::string& str)
 {
   const size_t fnv_prime {1099511628211u};
   size_t hash {14695981039346656037u};
@@ -267,7 +335,7 @@ size_t YarmEngine::FNVHash(const std::string& str)
 }
 
 
-int64_t YarmEngine::findNewLine(std::ifstream& file, const size_t fileSize, FileReadDirection direction)
+int64_t YamrEngine::findNewLine(std::ifstream& file, const size_t fileSize, FileReadDirection direction)
 {
   auto currentPosition {static_cast<size_t>(file.tellg())};
   if (FileReadDirection::forward == direction)
@@ -301,9 +369,9 @@ int64_t YarmEngine::findNewLine(std::ifstream& file, const size_t fileSize, File
 }
 
 
-SharedStringList YarmEngine::readAndMap(const std::string& fileName,
+SharedStringList YamrEngine::readAndMap(const std::string& fileName,
                                         const FileBounds bounds,
-                                        MapReduceFunction mapper,
+                                        SharedFunctor mapper,
                                         std::mutex& fileLock)
 {
   try
@@ -311,7 +379,7 @@ SharedStringList YarmEngine::readAndMap(const std::string& fileName,
     const auto startPosition{bounds.first};
     const auto endPosition{bounds.second};
 
-    StringList localData{};
+    auto localData {std::make_shared<StringList>()};
 
     {
       std::lock_guard<std::mutex> lockFile{fileLock};
@@ -336,13 +404,13 @@ SharedStringList YarmEngine::readAndMap(const std::string& fileName,
           std::transform(nextString.begin(), nextString.end(),
                          nextString.begin(), ::tolower);
 
-          localData.push_back(std::to_string(currentPosition) + "\t" + nextString);
+          mapper->operator()(std::to_string(currentPosition) + "\t" + nextString, *localData);
           currentPosition = inputFile.tellg();
         }
       }
     }
 
-    return std::make_shared<StringList>(mapper(localData));
+    return localData;
   }
   catch (const std::exception& ex)
   {
@@ -353,7 +421,7 @@ SharedStringList YarmEngine::readAndMap(const std::string& fileName,
 
 
 
-void YarmEngine::dispenseSortedLists(const SharedStringList& listToDispense,
+void YamrEngine::dispenseSortedLists(const SharedStringList& listToDispense,
                                      const std::vector<std::shared_ptr<SortedListsMerger> >& mergers)
 {
   try
@@ -384,25 +452,16 @@ void YarmEngine::dispenseSortedLists(const SharedStringList& listToDispense,
     return;
   }
 }
-
-
-
-void YarmEngine::SortedListsMerger::offer(const std::string& nextString)
-{
-  std::lock_guard<std::mutex> lockAccess{accessLock};
-  buffer.push(nextString);
-}
-
-SharedStringList YarmEngine::SortedListsMerger::getMergedData() const
+  
+SharedStringList YamrEngine::reduce(const SharedStringList& listToReduce, SharedFunctor reducer)
 {
   try
   {
     auto result{std::make_shared<StringList>()};
 
-    while(buffer.empty() != true)
+    for (const auto& nextString : *listToReduce)
     {
-      result->push_back(buffer.top());
-      buffer.pop();
+      reducer->operator()(nextString, *result);
     }
 
     return result;
@@ -412,5 +471,62 @@ SharedStringList YarmEngine::SortedListsMerger::getMergedData() const
     std::cerr << ex.what();
     return nullptr;
   }
+}
+
+
+
+void YamrEngine::SortedListsMerger::offer(const std::string& nextString)
+{
+  auto splitResult{extractKeyValue(nextString)};
+  auto nextKey{splitResult.first};
+  auto nextValue{splitResult.second};
+
+  std::lock_guard<std::mutex> lockAccess{accessLock};
+  collector[nextKey].insert(nextValue);
+}
+
+SharedStringList YamrEngine::SortedListsMerger::getMergedData() const
+{
+  try
+  {
+    auto result{std::make_shared<StringList>()};
+
+    std::lock_guard<std::mutex> lockAccess{accessLock};
+
+    for (const auto& collection : collector)
+    {
+      std::stringstream collectedString{};
+      collectedString << collection.first << "\t";
+      // key_tab_value_value_value_value_...
+      for (const auto& value : collection.second)
+      {
+        collectedString << value << " ";
+      }
+
+      auto keyValuesString{collectedString.str()};
+
+      result->push_back(keyValuesString.substr(0, keyValuesString.size() - 1));
+    }
+
+    return result;
+  }
+  catch (const std::exception& ex)
+  {
+    std::cerr << ex.what();
+    return nullptr;
+  }
+}
+
+std::pair<std::string, std::string> YamrEngine::SortedListsMerger::extractKeyValue(const std::string& tabSeparatedData)
+{
+  auto tabPosition{tabSeparatedData.find('\t', 0)};
+  if (tabPosition == std::string::npos
+      || tabPosition == tabSeparatedData.size() - 1)
+  {
+    return std::make_pair(tabSeparatedData, std::string{});
+  }
+  auto key {tabSeparatedData.substr(0, tabPosition)};
+  auto value {tabSeparatedData.substr(tabPosition + 1)};
+  return std::make_pair(key, value);
 }
 

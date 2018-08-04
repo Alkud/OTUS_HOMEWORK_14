@@ -7,11 +7,12 @@
 #include <fstream>
 #include <iostream>
 #include <random>
+#include <ctime>
 
-#include "yarm_engine.h"
+#include "yamr_engine.h"
 
 
-BOOST_AUTO_TEST_SUITE(yarm_engine_test)
+BOOST_AUTO_TEST_SUITE(yamr_engine_test)
 
 static const char characterSource[] =
   "0123456789"
@@ -36,7 +37,7 @@ BOOST_AUTO_TEST_CASE(file_split_test)
 
     testFileWrite.close();
 
-    auto splitBounds{YarmEngine::splitFile("testfile.txt", 7)};
+    auto splitBounds{YamrEngine::splitFile("testfile.txt", 7)};
 
     std::ifstream testFileRead ("testfile.txt", std::ifstream::ate | std::ifstream::binary);
 
@@ -73,7 +74,7 @@ BOOST_AUTO_TEST_CASE(bad_split_test)
     oneStringFile << oneLongString.str();
     oneStringFile.close();
 
-    auto splitBounds{YarmEngine::splitFile("one_string_file.txt", 12)};
+    auto splitBounds{YamrEngine::splitFile("one_string_file.txt", 12)};
 
     BOOST_CHECK(splitBounds.size() == 1);
     BOOST_CHECK(splitBounds.back().first == 0);
@@ -86,7 +87,7 @@ BOOST_AUTO_TEST_CASE(bad_split_test)
     emptyStringsFile << "\n\n\n\n\nend of file";
     emptyStringsFile.close();
 
-    splitBounds = YarmEngine::splitFile("empty_strings_file.txt", 6);
+    splitBounds = YamrEngine::splitFile("empty_strings_file.txt", 6);
 
     FileBoundsList expectedBounds {{0,2}, {3,4}, {5,15}};
 
@@ -102,10 +103,20 @@ BOOST_AUTO_TEST_CASE(bad_split_test)
   }
 }
 
+class DummyMapper : public MapperReducerBase
+{
+  void operator()(const std::string& inputString, StringList& destination) override
+  {
+    destination.push_back(inputString);
+  }
+};
+
 BOOST_AUTO_TEST_CASE(multithread_split_test)
 {
   try
   {
+    std::srand(std::time(nullptr));
+
     std::ofstream testFile ("testfile.txt");
 
     StringList expectedMappedData{};
@@ -153,12 +164,9 @@ BOOST_AUTO_TEST_CASE(multithread_split_test)
 
     testFile.close();    
 
-    MapReduceFunction dummyMapper{[](const StringList& inputList) -> StringList
-    {
-      return inputList;
-    }};
+    auto dummyMapper {std::make_shared<DummyMapper>()};
 
-    auto testMappedData{YarmEngine::mapData("testfile.txt", 5, dummyMapper)};
+    auto testMappedData{YamrEngine::mapData("testfile.txt", 5, dummyMapper)};
 
     StringList joinedMappedData{};
 
@@ -191,6 +199,8 @@ BOOST_AUTO_TEST_CASE(merge_test)
   {
     ListSharedStringList testMappedData{};
 
+    ListSharedStringList expectedMergedData{};
+
     for (size_t idx{0}; idx < 6; ++idx)
     {
       testMappedData.emplace_back(new StringList());
@@ -198,61 +208,59 @@ BOOST_AUTO_TEST_CASE(merge_test)
 
     for (size_t prefixLength{1}; prefixLength <= 7; ++prefixLength)
     {
-      size_t occurrenceFactor{0};
+      expectedMergedData.emplace_back(new StringList());
+
+      std::stringstream mergedStream{};
+
+      mergedStream << std::to_string(prefixLength) << "\t";
+
+      char prefixChar{'A'};
       for (auto& mappedList : testMappedData)
       {
-        ++occurrenceFactor;
-        for (size_t idx{1}; idx <= 20; ++idx)
-        {
-          mappedList->push_back(std::to_string(prefixLength)
-                                + "\t"
-                                + std::to_string(idx
-                                                 + occurrenceFactor * 100
-                                                 + prefixLength * 1000));
-        }
+        mappedList->push_back(std::to_string(prefixLength)
+                              + "\t"
+                              + std::string(prefixLength, prefixChar));
+
+        mergedStream << std::string(prefixLength, prefixChar) << " ";
+
+        ++prefixChar;
       }
+
+      auto mergedString{mergedStream.str()};
+      expectedMergedData.back()->push_back(mergedString.substr(0, mergedString.size() - 1));
+
     }
 
-    StringList joinedTestMappedData{};
+    auto actualMergedData{YamrEngine::mergeData(testMappedData, 7)};
 
-    for (const auto& nextList : testMappedData)
-    {
-      for (const auto& nextString : *nextList)
-      {
-        joinedTestMappedData.push_back(nextString);
-      }
-    }
-
-    joinedTestMappedData.sort();
-
-    auto actualMergedData{YarmEngine::mergeData(testMappedData, 7)};
-
-    StringList joinedActualMappedData{};
-
-    std::set<std::string> actualDataKeys{};
+    StringList joinedActualMergedData{};
 
     for (const auto& nextList : actualMergedData)
     {
-      std::set<std::string> nextDataKeys{};
       for (const auto& nextString : *nextList)
       {
-        auto tabPosition{nextString.find('\t', 0)};
-        auto nextKey {nextString.substr(0, tabPosition)};
-        nextDataKeys.insert(nextKey);
-        joinedActualMappedData.push_back(nextString);
-      }
-      for (const auto& key : nextDataKeys)
-      {
-        BOOST_CHECK(actualDataKeys.insert(key).second == true);
+        joinedActualMergedData.push_back(nextString);
       }
     }
 
-    joinedActualMappedData.sort();
+    joinedActualMergedData.sort();
 
-    BOOST_CHECK_EQUAL_COLLECTIONS(joinedTestMappedData.begin(),
-                                  joinedTestMappedData.end(),
-                                  joinedActualMappedData.begin(),
-                                  joinedActualMappedData.end());
+    StringList joinedExpectedMergedData{};
+
+    for (const auto& nextList : expectedMergedData)
+    {
+      for (const auto& nextString : *nextList)
+      {
+        joinedExpectedMergedData.push_back(nextString);
+      }
+    }
+
+    joinedExpectedMergedData.sort();
+
+    BOOST_CHECK_EQUAL_COLLECTIONS(joinedActualMergedData.begin(),
+                                  joinedActualMergedData.end(),
+                                  joinedActualMergedData.begin(),
+                                  joinedActualMergedData.end());
   }
   catch (const std::exception& ex)
   {

@@ -1,48 +1,34 @@
 #include "prefix_mapper.h"
 
-#include <map>
 
-std::list<std::string>
-PrefixMapper::operator()(const std::list<std::string>& dataToMap)
+void
+PrefixMapper::operator()(const std::string& inputString,
+                         std::list<std::string>& destination)
 {
-  size_t minStringSize{2000};
+  auto value{extractKeyValue(inputString).second};
 
-  for(const auto& item : dataToMap)
+  size_t stringSize{value.size()};
+
+  for (size_t prefixLength{1}; prefixLength <= stringSize; ++prefixLength)
   {
-    if (item.size() < minStringSize)
-    {
-      auto tabPosition{item.find('\t', 0)};
-      auto itemValue = tabPosition == std::string::npos
-                       ? item : item.substr(tabPosition+1);
-      minStringSize = itemValue.size();
-    }
+    auto prefix{value.substr(0, prefixLength)};
+
+    std::stringstream lengthInfo{};
+    lengthInfo << prefixLength << "\t" << prefix;
+
+    destination.push_back(lengthInfo.str());
   }
+}
 
-  std::list<std::string> occurrenceCounts{};
-
-  for (size_t prefixLength{1}; prefixLength <= minStringSize; ++prefixLength)
+std::pair<std::string, std::string> PrefixMapper::extractKeyValue(const std::string& tabSeparatedData)
+{
+  auto tabPosition{tabSeparatedData.find('\t', 0)};
+  if (tabPosition == std::string::npos
+      || tabPosition == tabSeparatedData.size() - 1)
   {
-    std::map <std::string, size_t> prefixes{};
-    for(const auto& item : dataToMap)
-    {
-      auto tabPosition{item.find('\t', 0)};
-      auto itemValue = tabPosition == std::string::npos
-                       ? item : item.substr(tabPosition+1);
-      ++prefixes[itemValue.substr(0, prefixLength)];
-    }
-
-    size_t maxOccurrenceCount{};
-    for (const auto& prefix : prefixes)
-    {
-      if (prefix.second > maxOccurrenceCount)
-      {
-        maxOccurrenceCount = prefix.second;
-      }
-    }
-
-    occurrenceCounts.push_back(std::to_string(prefixLength)
-                               + "\t" + std::to_string(maxOccurrenceCount));
+    return std::make_pair(tabSeparatedData, std::string{});
   }
-
-  return occurrenceCounts;
+  auto key {tabSeparatedData.substr(0, tabPosition)};
+  auto value {tabSeparatedData.substr(tabPosition + 1)};
+  return std::make_pair(key, value);
 }

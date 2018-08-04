@@ -10,6 +10,7 @@
 #include <future>
 #include <memory>
 #include <fstream>
+#include "../mapper_reducer/mapper_reducer_base.h"
 
 using StringList = std::list<std::string>;
 using SharedStringList = std::shared_ptr<StringList>;
@@ -17,7 +18,7 @@ using SharedStringList = std::shared_ptr<StringList>;
 using ListStringList = std::list<StringList>;
 using ListSharedStringList = std::list<SharedStringList>;
 
-using MapReduceFunction = std::function<StringList(const StringList&)>;
+using SharedFunctor = std::shared_ptr<MapperReducerBase>;
 
 using FileBounds = std::pair<size_t, size_t>;
 using FileBoundsList = std::list<FileBounds>;
@@ -32,18 +33,21 @@ enum class FileReadDirection
   backward
 };
 
-class YarmEngine
+class YamrEngine
 {
 public:  
 
-  YarmEngine() = delete;
-  YarmEngine(size_t newMappingThreadCount, size_t newReducingThreadCount);
+  YamrEngine() = delete;
+  YamrEngine(size_t newMappingThreadCount,
+             size_t newReducingThreadCount,
+             const SharedFunctor& newMapper,
+             const SharedFunctor& newReducer);
 
   static FileBoundsList splitFile(const std::string& fileName, const size_t partsCount);
 
   static ListSharedStringList mapData(const std::string& fileName,
                                       const size_t resultPartsCount,
-                                       MapReduceFunction mapper);
+                                      SharedFunctor mapper);
 
   const ListSharedStringList getMappedData();
 
@@ -52,12 +56,18 @@ public:
 
   const ListSharedStringList getMergedData();
 
-  static ListSharedStringList reduceData(const ListSharedStringList& mappedData,
-                                         MapReduceFunction reducer);
+  static ListSharedStringList reduceData(const ListSharedStringList& mergedData,
+                                         SharedFunctor reducer);
+
+  static ListSharedStringList reduceAndSaveData(const ListSharedStringList& mergedData,
+                                                SharedFunctor reducer);
 
   const ListSharedStringList getReducedData();
 
-  static void saveListToFile(const std::string& fileName, const SharedStringList& data);
+  static void saveListToFile(const std::string& fileName,
+                             const SharedStringList& data);
+
+  void mapReduce(const std::string& fileName);
 
 private:
 
@@ -68,9 +78,12 @@ private:
     SharedStringList getMergedData() const;
 
   private:
-    std::mutex accessLock{};
+    std::pair<std::string, std::string>
+    extractKeyValue(const std::string& tabSeparatedData);
+
+    mutable std::mutex accessLock{};
     SharedStringList destination{nullptr};
-    mutable PriorityStringQueue buffer;
+    std::map<std::string, std::multiset<std::string>> collector;
   };
 
   static size_t FNVHash(const std::string& str);
@@ -81,15 +94,21 @@ private:
 
   static SharedStringList readAndMap(const std::string& fileName,
                                      const FileBounds bounds,
-                                     MapReduceFunction mapper,
+                                     SharedFunctor mapper,
                                      std::mutex& fileLock);
 
   static void dispenseSortedLists(const SharedStringList& listToDispense,
                                   const std::vector<std::shared_ptr<SortedListsMerger>>& mergers);
+  
+  static SharedStringList reduce(const SharedStringList& listToReduce,
+                                 SharedFunctor reducer);
 
 
   size_t mappingThreadCount;
   size_t reducingThreadCount;
+
+  SharedFunctor mapper;
+  SharedFunctor reducer;
 
   ListSharedStringList splittedMappedData;
   ListSharedStringList mergedMappedData;
