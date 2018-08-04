@@ -1,6 +1,6 @@
 project(unit_tests)
 
-find_package(Boost COMPONENTS filesystem unit_test_framework REQUIRED)
+find_package(Boost COMPONENTS unit_test_framework REQUIRED)
 find_package(Threads)
 
 add_executable(mapper_test  mapper_test.cpp)
@@ -88,5 +88,3 @@ add_test(NAME TEST_ENGINE
 
 add_test(NAME TEST_yamr
          COMMAND yamr_test)
-
-
