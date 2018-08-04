@@ -1,0 +1,1 @@
+/usr/bin/g++    -rdynamic CMakeFiles/yamr_test.dir/yamr_test.cpp.o  -o yamr_test -lpthread ../mapper_reducer/libmapper_reducer.a ../yamr_engine/libyamr_engine.a -lboost_unit_test_framework -lpthread 

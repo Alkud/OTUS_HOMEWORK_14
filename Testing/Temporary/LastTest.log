@@ -1,0 +1,75 @@
+Start testing: Aug 04 18:31 UTC
+----------------------------------------------------------
+1/4 Testing: TEST_MAPPER
+1/4 Test: TEST_MAPPER
+Command: "/home/travis/build/Alkud/OTUS_HOMEWORK_14/unit_tests/mapper_test"
+Directory: /home/travis/build/Alkud/OTUS_HOMEWORK_14/unit_tests
+"TEST_MAPPER" start time: Aug 04 18:31 UTC
+Output:
+----------------------------------------------------------
+Running 2 test cases...
+
+*** No errors detected
+<end of output>
+Test time =   0.05 sec
+----------------------------------------------------------
+Test Passed.
+"TEST_MAPPER" end time: Aug 04 18:31 UTC
+"TEST_MAPPER" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/4 Testing: TEST_REDUCER
+2/4 Test: TEST_REDUCER
+Command: "/home/travis/build/Alkud/OTUS_HOMEWORK_14/unit_tests/reducer_test"
+Directory: /home/travis/build/Alkud/OTUS_HOMEWORK_14/unit_tests
+"TEST_REDUCER" start time: Aug 04 18:31 UTC
+Output:
+----------------------------------------------------------
+Running 1 test case...
+
+*** No errors detected
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"TEST_REDUCER" end time: Aug 04 18:31 UTC
+"TEST_REDUCER" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/4 Testing: TEST_ENGINE
+3/4 Test: TEST_ENGINE
+Command: "/home/travis/build/Alkud/OTUS_HOMEWORK_14/unit_tests/engine_test"
+Directory: /home/travis/build/Alkud/OTUS_HOMEWORK_14/unit_tests
+"TEST_ENGINE" start time: Aug 04 18:31 UTC
+Output:
+----------------------------------------------------------
+Running 4 test cases...
+
+*** No errors detected
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"TEST_ENGINE" end time: Aug 04 18:31 UTC
+"TEST_ENGINE" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/4 Testing: TEST_yamr
+4/4 Test: TEST_yamr
+Command: "/home/travis/build/Alkud/OTUS_HOMEWORK_14/unit_tests/yamr_test"
+Directory: /home/travis/build/Alkud/OTUS_HOMEWORK_14/unit_tests
+"TEST_yamr" start time: Aug 04 18:31 UTC
+Output:
+----------------------------------------------------------
+Running 2 test cases...
+
+*** No errors detected
+<end of output>
+Test time =   0.09 sec
+----------------------------------------------------------
+Test Passed.
+"TEST_yamr" end time: Aug 04 18:31 UTC
+"TEST_yamr" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Aug 04 18:31 UTC

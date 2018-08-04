@@ -1,0 +1,24 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/travis/build/Alkud/OTUS_HOMEWORK_14/unit_tests/generate_sample_file.cpp
+iostream
+-
+sstream
+-
+fstream
+-
+cstdlib
+-
+ctime
+-
+random
+-
+vector
+-
+

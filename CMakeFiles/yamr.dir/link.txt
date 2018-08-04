@@ -1,0 +1,1 @@
+/usr/bin/g++    -rdynamic CMakeFiles/yamr.dir/yamr.cpp.o CMakeFiles/yamr.dir/yamr_process.cpp.o  -o yamr -lpthread yamr_engine/libyamr_engine.a mapper_reducer/libmapper_reducer.a -lpthread 

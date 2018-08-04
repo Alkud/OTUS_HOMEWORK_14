@@ -1,0 +1,1 @@
+/usr/bin/g++    -rdynamic CMakeFiles/reducer_test.dir/reducer_test.cpp.o  -o reducer_test -lpthread ../mapper_reducer/libmapper_reducer.a -lboost_unit_test_framework 

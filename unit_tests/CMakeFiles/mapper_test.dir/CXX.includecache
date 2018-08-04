@@ -1,0 +1,40 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/travis/build/Alkud/OTUS_HOMEWORK_14/unit_tests/mapper_test.cpp
+boost/test/unit_test.hpp
+-
+sstream
+-
+fstream
+-
+iostream
+-
+cmath
+-
+ctime
+-
+prefix_mapper.h
+/home/travis/build/Alkud/OTUS_HOMEWORK_14/unit_tests/prefix_mapper.h
+
+unit_tests/../mapper_reducer/mapper_reducer_base.h
+string
+-
+list
+-
+
+unit_tests/../mapper_reducer/prefix_mapper.h
+list
+-
+map
+-
+sstream
+-
+mapper_reducer_base.h
+unit_tests/../mapper_reducer/mapper_reducer_base.h
+

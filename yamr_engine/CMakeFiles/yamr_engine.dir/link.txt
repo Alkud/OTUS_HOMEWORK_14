@@ -1,0 +1,2 @@
+/usr/bin/ar qc libyamr_engine.a  CMakeFiles/yamr_engine.dir/yamr_engine.cpp.o
+/usr/bin/ranlib libyamr_engine.a
