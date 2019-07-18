@@ -45,7 +45,7 @@
 
 Порядок запуска:
 
-$ yamr <src> <mnum> <rnum>
+$ yamr \<src> \<mnum> \<rnum>
 где
   
 • src – путь к файлу с данными.
